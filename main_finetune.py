@@ -5,7 +5,6 @@ import main_pipeline as mp
 import hyperparams as hp
 
 def run_with_hyperparams(params_tuple):
-    """Run main pipeline with specific hyperparameters"""
     lr, decay, warmup = params_tuple
     
     hp.LEARNING_RATE = lr
@@ -21,7 +20,7 @@ def finetune():
 
     all_hyperparams = list(product(lrs, decays, warmups))
         
-    with Pool(processes=min(2, len(all_hyperparams))) as pool:
+    with Pool(processes=min(24, len(all_hyperparams))) as pool:
         pool.map(run_with_hyperparams, all_hyperparams)
     
 if __name__ == "__main__":
