@@ -1,5 +1,5 @@
 import pandas as pd
-from hyperparams import *
+import hyperparams as hp
 from torch.utils.data import Dataset
 import torch
 
@@ -11,11 +11,11 @@ class WindowLoader(Dataset):
             self.data = self.data.cuda()
 
         if task == 'classifier':
-            self.size = len(self.data) - WINDOW_SIZE
+            self.size = len(self.data) - hp.WINDOW_SIZE
             
         elif task == 'regressor': 
             mask_indices = df[df['is_mask'] == 1].index.tolist()
-            self.valid_indices = [i for i in mask_indices if i >= WINDOW_SIZE]
+            self.valid_indices = [i for i in mask_indices if i >= hp.WINDOW_SIZE]
             self.size = len(self.valid_indices)
 
         features = {name: index for index, name in enumerate(df.columns)}
@@ -44,7 +44,7 @@ class WindowLoader(Dataset):
     def __getitem__(self, index):
         if self.task == 'classifier':
             start = index
-            end = start + WINDOW_SIZE
+            end = start + hp.WINDOW_SIZE
 
             window = self.data[start : end]
             label = self.get_label(self.data, end)
@@ -52,7 +52,7 @@ class WindowLoader(Dataset):
         else:
             target_idx = self.valid_indices[index]
             
-            start = target_idx - WINDOW_SIZE
+            start = target_idx - hp.WINDOW_SIZE
             end = target_idx
             
             window = self.data[start : end]

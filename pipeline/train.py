@@ -1,3 +1,4 @@
+import json
 from torch.utils.data import DataLoader, Dataset
 from torch.optim.lr_scheduler import LambdaLR
 import torch.optim as optim
@@ -6,23 +7,21 @@ import torch
 import math
 
 from pipeline.model_t import TransformerBCE
-
-from hyperparams import *
-import json
+import hyperparams as hp
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 def get_lr_mult(current_step : int):
-    if current_step < WARMUP:
-        return current_step / max(1, WARMUP)
+    if current_step < hp.WARMUP:
+        return current_step / max(1, hp.WARMUP)
 
-    s = current_step - WARMUP
-    cycle_len = T0
+    s = current_step - hp.WARMUP
+    cycle_len = hp.T0
     cycle_start = 0
 
     while s >= cycle_start + cycle_len:
         cycle_start += cycle_len
-        cycle_len *= T_MULT
+        cycle_len *= hp.T_MULT
 
     progress = (s - cycle_start) / max(1, cycle_len)
     return 0.5 * (1.0 + math.cos(math.pi * progress))
@@ -40,13 +39,12 @@ def set_seed(seed = None):
     return seed
 
 def train(train_data : Dataset, test_data : Dataset, task : str = 'classifier', debug_mode = False):
-    
-    seed = set_seed(SEED)
+    seed = set_seed(hp.SEED)
     loss_record = []
 
     training_loader = DataLoader(
         train_data,
-        batch_size=BATCH_SIZE,
+        batch_size=hp.BATCH_SIZE,
         shuffle=True,
         drop_last=True,
         num_workers=0
@@ -67,9 +65,9 @@ def train(train_data : Dataset, test_data : Dataset, task : str = 'classifier', 
         # model = TransformerBCE(head_size = 3, debug = debug_mode).to(DEVICE)
     
     optimizer = optim.AdamW(model.parameters(), 
-                            lr = LEARNING_RATE, 
-                            betas = (BETA1, BETA2), 
-                            weight_decay = WEIGHT_DECAY)
+                            lr = hp.LEARNING_RATE, 
+                            betas = (hp.BETA1, hp.BETA2), 
+                            weight_decay = hp.WEIGHT_DECAY)
     criterion = nn.BCEWithLogitsLoss() if task == "classifier" else nn.MSELoss()
 
     scheduler = LambdaLR(optimizer, lr_lambda=get_lr_mult)
@@ -84,7 +82,7 @@ def train(train_data : Dataset, test_data : Dataset, task : str = 'classifier', 
 
     epochs, bad_epochs, lowest_loss = 0, 0, float('inf')
     try:
-        while bad_epochs < PATIENCE:
+        while bad_epochs < hp.PATIENCE:
             epochs += 1
             model.train()
 
@@ -112,18 +110,19 @@ def train(train_data : Dataset, test_data : Dataset, task : str = 'classifier', 
             stats, predictions = evaluate(model, testing_loader, criterion, task)
             lowest_loss = min(stats['avg_loss'], lowest_loss)
 
-            if lowest_loss >= stats['avg_loss'] - STOP_BUFFER:
+            if lowest_loss >= stats['avg_loss'] - hp.STOP_BUFFER:
                 bad_epochs += 1
 
-                torch.save(model.state_dict(), f"./pipeline/models/{task}/model_{epochs}.pt")
-                with open(f"./pipeline/models/{task}/model_{epochs}_stats.json", "w") as f:
-                    dicta = {"recipe" : {"window size" : WINDOW_SIZE, "batch size" : BATCH_SIZE, 
-                                         "learning rate" : LEARNING_RATE, "beta1" : BETA1, "beta2" : BETA2, 
-                                         "weight decay" : WEIGHT_DECAY, "warmup" : WARMUP, 
-                                         "T0" : T0, "T_mult" : T_MULT,
-                                         "dropout" : DROPOUT,
-                                         "stop buffer" : STOP_BUFFER, "patience" : PATIENCE, 
-                                         "vel alpha" : VEL_ALPHA, "accel alpha" : ACCEL_ALPHA, 
+                torch.save(model.state_dict(), f"./pipeline/models/{task}/LR{hp.LEARNING_RATE}_DECAY{hp.WEIGHT_DECAY}_WARMUP{hp.WARMUP}.pt")
+
+                with open(f"./pipeline/models/{task}/LR{hp.LEARNING_RATE}_DECAY{hp.WEIGHT_DECAY}_WARMUP{hp.WARMUP}_stats.json", "w") as f:
+                    dicta = {"recipe" : {"window size" : hp.WINDOW_SIZE, "batch size" : hp.BATCH_SIZE, 
+                                         "learning rate" : hp.LEARNING_RATE, "beta1" : hp.BETA1, "beta2" : hp.BETA2, 
+                                         "weight decay" : hp.WEIGHT_DECAY, "warmup" : hp.WARMUP, 
+                                         "T0" : hp.T0, "T_mult" : hp.T_MULT,
+                                         "dropout" : hp.DROPOUT,
+                                         "stop buffer" : hp.STOP_BUFFER, "patience" : hp.PATIENCE, 
+                                         "vel alpha" : hp.VEL_ALPHA, "accel alpha" : hp.ACCEL_ALPHA, 
                                          "seed" : seed},
                             "performance" : stats}
                     json.dump(dicta, f, indent=4)

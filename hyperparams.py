@@ -12,7 +12,7 @@ DROPOUT = 0.0
 T0 = 10000
 T_MULT = 2
 
-STOP_BUFFER = 0.001
+STOP_BUFFER = 0.0001
 PATIENCE = 5
 
 # preprocessing

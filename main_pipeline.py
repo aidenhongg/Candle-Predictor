@@ -39,7 +39,4 @@ def main(FILENAME = 'training_data.csv', task = 'classifier', DEBUG_MODE = False
         plot_loss(loss_record, task)        
 
 if __name__ == "__main__":
-    main(task='classifier')
-    # main(task='regressor')
-    # print('classifier done, press enter to proceed')
-    input()
+    main(task='regressor')

@@ -14,12 +14,12 @@
         "patience": 5,
         "vel alpha": 0.3,
         "accel alpha": 0.3,
-        "seed": 3294786246
+        "seed": 2029679992
     },
     "performance": {
-        "avg_loss": 2.1207065878566453,
-        "average_high_d": 7.994105815887451,
-        "average_low_d": 7.994105815887451,
-        "average_close_d": 7.994105815887451
+        "avg_loss": 2.0989158011940763,
+        "average_high_d": 7.940069675445557,
+        "average_low_d": 7.940069675445557,
+        "average_close_d": 7.940069675445557
     }
 }

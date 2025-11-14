@@ -1,7 +1,7 @@
 import math
 import torch
 
-from hyperparams import *
+import hyperparams as hp
 import torch.nn as nn
 
 def is_invalid(tensor):
@@ -34,8 +34,8 @@ class TransformerBCE(nn.Module):
         num_heads: int = 4,
         num_layers: int = 2,
         ff_dim: int = 128,
-        dropout: float = DROPOUT,
-        seq_len: int = WINDOW_SIZE,
+        dropout: float = hp.DROPOUT,
+        seq_len: int = hp.WINDOW_SIZE,
         head_size = 1,
         debug = False 
     ):

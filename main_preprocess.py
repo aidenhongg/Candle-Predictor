@@ -10,7 +10,7 @@ percent diff for volume
 
 """
 from preprocess import _mask_trends, _Velocity
-from hyperparams import *
+import hyperparams as hp
 import pandas as pd
 import numpy as np
 import os
@@ -54,7 +54,7 @@ def preprocess(filename, classifier_stats = (0.06, 0.3, 0.012, 0.12)):
         df[f'{feature}_r'] = np.log1p(df[feature])
 
     # get single and double EWMA for velocity and acceleration
-    volatility = _Velocity(VEL_ALPHA, ACCEL_ALPHA)    
+    volatility = _Velocity(hp.VEL_ALPHA, hp.ACCEL_ALPHA)    
     def calc_velocity(volatility, value):
         volatility.add(value)
         return volatility.value, volatility.acceleration.value
