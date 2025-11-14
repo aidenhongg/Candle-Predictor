@@ -1,0 +1,23 @@
+{
+    "recipe": {
+        "window size": 240,
+        "batch size": 64,
+        "learning rate": 1e-05,
+        "beta1": 0.9,
+        "beta2": 0.999,
+        "weight decay": 0.01,
+        "warmup": 8000,
+        "dropout": 0.0,
+        "stop buffer": 0.001,
+        "patience": 5,
+        "vel alpha": 0.3,
+        "accel alpha": 0.3,
+        "seed": 1688794023
+    },
+    "performance": {
+        "avg_loss": 2.084065306145285,
+        "average_high_d": 7.897568225860596,
+        "average_low_d": 7.897568225860596,
+        "average_close_d": 7.897568225860596
+    }
+}
