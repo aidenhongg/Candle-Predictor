@@ -163,9 +163,7 @@ def evaluate(model, dataloader, criterion, task = 'classifier'):
             if task == 'classifier':
                 predictions = (torch.sigmoid(logits) >= 0.5).long()
                 label_batch = label_batch.long()
-                print(predictions.shape, label_batch.shape)
-                print(predictions.unique(return_counts=True))
-
+                
                 correct_predictions += (predictions == label_batch).sum().item()
 
                 pred = predictions.view(-1)
