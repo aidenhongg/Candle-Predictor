@@ -26,7 +26,7 @@ def main(FILENAME = 'training_data.csv', task = 'classifier', DEBUG_MODE = False
     test_data = WindowLoader(df[split:], task)
     
     del df
-
+    
     loss_record, predictions = train(train_data, test_data, task, debug_mode = DEBUG_MODE)
 
     if GRAPH_MODE:
@@ -39,4 +39,4 @@ def main(FILENAME = 'training_data.csv', task = 'classifier', DEBUG_MODE = False
         plot_loss(loss_record, task)        
 
 if __name__ == "__main__":
-    main(task='regressor')
+    main()

@@ -58,10 +58,11 @@ def train(train_data : Dataset, test_data : Dataset, task : str = 'classifier', 
         num_workers=0
     )
     if task == 'classifier':
-        model = TransformerBCE(embed_dim = 128, num_heads = 8, num_layers=3, ff_dim=256, head_size = 1, debug = debug_mode).to(DEVICE)
+        model = TransformerBCE(embed_dim = 256, num_heads = 8, num_layers=6, ff_dim=512, head_size = 1, debug = debug_mode).to(DEVICE)
+        # model = TransformerBCE(embed_dim = 128, num_heads = 8, num_layers=3, ff_dim=256, head_size = 1, debug = debug_mode).to(DEVICE)
         # model = TransformerBCE(head_size = 1, debug = debug_mode).to(DEVICE)
     elif task == 'regressor':
-        model = TransformerBCE(embed_dim = 128, num_heads = 8, num_layers=3, ff_dim=256, head_size = 3, debug = debug_mode).to(DEVICE)
+        model = TransformerBCE(embed_dim = 256, num_heads = 8, num_layers=6, ff_dim=512, head_size = 3, debug = debug_mode).to(DEVICE)
         # model = TransformerBCE(head_size = 3, debug = debug_mode).to(DEVICE)
     
     optimizer = optim.AdamW(model.parameters(), 
@@ -110,7 +111,8 @@ def train(train_data : Dataset, test_data : Dataset, task : str = 'classifier', 
             stats, predictions = evaluate(model, testing_loader, criterion, task)
             lowest_loss = min(stats['avg_loss'], lowest_loss)
 
-            if lowest_loss >= stats['avg_loss'] - hp.STOP_BUFFER:
+            if stats['avg_loss'] < lowest_loss - hp.STOP_BUFFER:
+                lowest_loss = stats['avg_loss']
                 bad_epochs += 1
 
                 torch.save(model.state_dict(), f"./pipeline/models/{task}/LR{hp.LEARNING_RATE}_DECAY{hp.WEIGHT_DECAY}_WARMUP{hp.WARMUP}.pt")
@@ -128,6 +130,8 @@ def train(train_data : Dataset, test_data : Dataset, task : str = 'classifier', 
                     json.dump(dicta, f, indent=4)
                 best_predictions = predictions
 
+            else:
+                bad_epochs = 0
             if task == 'classifier':
                 print(f"Epoch {epochs}: validation loss of {stats['avg_loss']:.8f}, accuracy of {stats['accuracy']:.2f}%")
                 print(f"{stats['false_positives']:.0f} false positives")

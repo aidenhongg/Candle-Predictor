@@ -45,17 +45,6 @@ def graph_deltas(predictions, labels):
     plt.savefig('./graphing/graphs/delta_comparison.png', dpi=400)
     plt.close()
 
-def test_graph_masks():
-        
-        # Create sample data
-        length = 100
-        points = pd.Series(np.random.randn(length).cumsum() + 100)
-        pred_mask = pd.Series(np.random.randint(0, 2, length))
-        label_mask = pd.Series(np.random.randint(0, 2, length))
-        
-        # Call the function
-        graph_masks(points, pred_mask, label_mask)
-        print("Test graphs generated successfully")
 
 def plot_loss(loss_record : list, task : str):
     loss_record = [l.cpu().item() for l in loss_record]
@@ -75,12 +64,19 @@ def plot_loss(loss_record : list, task : str):
 
 def test_plot_loss():
         
-        # Create sample loss data with tensors
-        loss_record = [torch.tensor(5.0 - i * 0.02 + np.random.rand() * 0.5) for i in range(200)]
+    loss_record = [torch.tensor(5.0 - i * 0.02 + np.random.rand() * 0.5) for i in range(200)]
+    
+    plot_loss(loss_record)
+    print("Test loss plot generated successfully")
+
+def test_graph_masks():
+        length = 100
+        points = pd.Series(np.random.randn(length).cumsum() + 100)
+        pred_mask = pd.Series(np.random.randint(0, 2, length))
+        label_mask = pd.Series(np.random.randint(0, 2, length))
         
-        # Call the function
-        plot_loss(loss_record)
-        print("Test loss plot generated successfully")
+        graph_masks(points, pred_mask, label_mask)
+        print("Test graphs generated successfully")
 
 if __name__ == "__main__":
     test_plot_loss()
