@@ -1,4 +1,5 @@
 from matplotlib.lines import Line2D
+import hyperparams as hp # please take out later
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -23,7 +24,7 @@ def graph_masks(points, pred_mask, label_mask):
         plt.xlabel('Time (minutes)')
         plt.ylabel('Close Price')
         plt.title('Price Trend Classification ' + ('(Predicted)' if type == 'pred' else '(Actual)'))
-        plt.savefig(f'./graphing/graphs/{type}_classes.png', dpi=400)
+        plt.savefig(f'./graphing/graphs/{hp.SEED}{type}_classes.png', dpi=400)
         plt.close()
     
     graph_trends('pred', pred_mask)
@@ -42,7 +43,7 @@ def graph_deltas(predictions, labels):
     plt.title('Close Delta Predictions vs Actual')
     plt.legend()
     
-    plt.savefig('./graphing/graphs/delta_comparison.png', dpi=400)
+    plt.savefig(f'./graphing/graphs/{hp.SEED}delta_comparison.png', dpi=400)
     plt.close()
 
 
@@ -59,7 +60,7 @@ def plot_loss(loss_record : list, task : str):
     plt.xlabel('Training Steps (Per 2500 Batches)')
     plt.ylabel('Loss')
     
-    plt.savefig(f'./graphing/graphs/{task}_convergence.png', dpi=400)
+    plt.savefig(f'./graphing/graphs//{hp.SEED}{task}_convergence.png', dpi=400)
     plt.close()
 
 def test_plot_loss():
