@@ -30,7 +30,7 @@ def main(FILENAME = 'training_data.csv', task = 'classifier', DEBUG_MODE = False
     loss_record, predictions = train(train_data, test_data, task, debug_mode = DEBUG_MODE)
 
     if GRAPH_MODE:
-        predictions = pd.Series(predictions.squeeze().cpu().numpy())[-5000::5].reset_index(drop=True)
+        predictions = pd.Series(predictions.squeeze().cpu().numpy()[:, -1])[-5000::5].reset_index(drop=True)
         if task == 'classifier':
             graph_masks(df_graph, predictions, labels) 
         elif task == 'regressor':

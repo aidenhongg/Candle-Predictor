@@ -40,6 +40,7 @@ def set_seed(seed = None):
 
 def train(train_data : Dataset, test_data : Dataset, task : str = 'classifier', debug_mode = False):
     seed = set_seed(hp.SEED)
+    savename = f"LR{hp.LEARNING_RATE}_DECAY{hp.WEIGHT_DECAY}_WARMUP{hp.WARMUP}_SEED{hp.SEED}"
     loss_record = []
 
     training_loader = DataLoader(
@@ -58,11 +59,12 @@ def train(train_data : Dataset, test_data : Dataset, task : str = 'classifier', 
         num_workers=0
     )
     if task == 'classifier':
-        model = TransformerBCE(embed_dim = 256, num_heads = 8, num_layers=6, ff_dim=512, head_size = 1, debug = debug_mode).to(DEVICE)
+        model = TransformerBCE(embed_dim = 320, num_heads = 8, num_layers=8, ff_dim=768, head_size = 1, debug = debug_mode).to(DEVICE)
+        # model = TransformerBCE(embed_dim = 256, num_heads = 8, num_layers=6, ff_dim=512, head_size = 1, debug = debug_mode).to(DEVICE)
         # model = TransformerBCE(embed_dim = 128, num_heads = 8, num_layers=3, ff_dim=256, head_size = 1, debug = debug_mode).to(DEVICE)
         # model = TransformerBCE(head_size = 1, debug = debug_mode).to(DEVICE)
     elif task == 'regressor':
-        model = TransformerBCE(embed_dim = 256, num_heads = 8, num_layers=6, ff_dim=512, head_size = 3, debug = debug_mode).to(DEVICE)
+        model = TransformerBCE(embed_dim = 320, num_heads = 8, num_layers=8, ff_dim=768, head_size = 3, debug = debug_mode).to(DEVICE)
         # model = TransformerBCE(head_size = 3, debug = debug_mode).to(DEVICE)
     
     optimizer = optim.AdamW(model.parameters(), 
@@ -115,9 +117,9 @@ def train(train_data : Dataset, test_data : Dataset, task : str = 'classifier', 
                 lowest_loss = stats['avg_loss']
                 bad_epochs += 1
 
-                torch.save(model.state_dict(), f"./pipeline/models/{task}/LR{hp.LEARNING_RATE}_DECAY{hp.WEIGHT_DECAY}_WARMUP{hp.WARMUP}.pt")
+                torch.save(model.state_dict(), f"./pipeline/models/{task}/{savename}.pt")
 
-                with open(f"./pipeline/models/{task}/LR{hp.LEARNING_RATE}_DECAY{hp.WEIGHT_DECAY}_WARMUP{hp.WARMUP}_stats.json", "w") as f:
+                with open(f"./pipeline/models/{task}/{savename}_stats.json", "w") as f:
                     dicta = {"recipe" : {"window size" : hp.WINDOW_SIZE, "batch size" : hp.BATCH_SIZE, 
                                          "learning rate" : hp.LEARNING_RATE, "beta1" : hp.BETA1, "beta2" : hp.BETA2, 
                                          "weight decay" : hp.WEIGHT_DECAY, "warmup" : hp.WARMUP, 
