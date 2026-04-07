@@ -1,25 +1,24 @@
 import main_pipeline
 
-FILENAME = 'training_data.csv' 
+FILENAME = 'training_data.csv'
+
 
 def main():
-    trainorpass = input("Train pipeline, classifier, or regressor? (training will overwrite current save) (p / c / r) ")
+    task_choice = input("Train pipeline, classifier, or regressor? (training will overwrite current save) (p / c / r) ")
+    debug = input("Debug mode? (y / n) ")
+    graph = input("Graph mode? (y / n) ")
 
-    debug = input("debug mode? (y / n) ")
-    graph = input("graph mode? (y / n) ")
-    if trainorpass.lower() == "p":  
-        main_pipeline.main(FILENAME, 'classifier', debug.lower() == "y", graph.lower() == "y")
-        main_pipeline.main(FILENAME, 'regressor', debug.lower() == "y", graph.lower() == "y")
-    elif trainorpass.lower() == "c":
-        main_pipeline.main(FILENAME, 'classifier', debug.lower() == "y", graph.lower() == "y")
-    elif trainorpass.lower() == "r":
-        main_pipeline.main(FILENAME, 'regressor', debug.lower() == "y", graph.lower() == "y")
+    debug_enabled = debug.lower() == "y"
+    graph_enabled = graph.lower() == "y"
 
-# possibly combine classifier and regressor into one func call to avoid reiniting dataset each time
-# create pipeline wide graph
-# create forward pass
-def forward_pass():
-    pass
+    if task_choice.lower() == "p":
+        main_pipeline.main(FILENAME, 'classifier', debug_enabled, graph_enabled)
+        main_pipeline.main(FILENAME, 'regressor', debug_enabled, graph_enabled)
+    elif task_choice.lower() == "c":
+        main_pipeline.main(FILENAME, 'classifier', debug_enabled, graph_enabled)
+    elif task_choice.lower() == "r":
+        main_pipeline.main(FILENAME, 'regressor', debug_enabled, graph_enabled)
+
 
 if __name__ == "__main__":
     main()
