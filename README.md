@@ -1,76 +1,65 @@
 # Candle-Predictor
 
-A transformer-based pipeline for predicting price trends in futures candle data. The system uses a two-stage architecture: a **classifier** that detects whether the market is in a trending state, and a **regressor** that predicts the magnitude of the next high/low/close deltas during those trends.
-
-The core idea is that most price movement is noise, and a model that tries to predict every tick will drown in it. Instead, this pipeline first learns *when* the market is actually moving with conviction, then hands off to a second model that only predicts *how much* it will move during those windows.
+A two-stage transformer pipeline for predicting price trends in futures candle data. A **classifier** detects whether the market is trending, then a **regressor** predicts the magnitude of the next high/low/close deltas during those windows -- filtering noise by only predicting when the market is moving with conviction.
 
 <p align="center"><img src="docs/images/architecture.png" width="700"/></p>
 
+## Skills & Frameworks
+
+- **Deep Learning**: PyTorch, transformer encoder architecture, custom positional encoding, learnable CLS token
+- **Optimization**: AdamW, linear warmup, cosine annealing with warm restarts, early stopping
+- **Signal Processing**: EWMA velocity/acceleration, asinh normalization, cyclical time encoding
+- **Infrastructure**: Multi-GPU grid search and seed search via `multiprocessing.Pool` with per-process `CUDA_VISIBLE_DEVICES` isolation
+- **Data**: Sliding-window dataset design, window-relative normalization, custom trend labeling heuristics
+
 ## Summary
 
-- **Architecture**: Transformer encoder with a learnable CLS token, projected through a linear head. 8 layers, 8 attention heads, 320-dim embeddings, 768-dim feedforward. Same backbone for both tasks, only the output head differs (1 logit for classification, 3 for regression).
-- **Preprocessing**: Custom trend detection algorithm using EWMA velocity/acceleration heuristics to label "trending" vs "non-trending" candles. Feature engineering includes asinh-normalized diffs, cyclical time encoding, log-normalized raw values, and EWMA-smoothed momentum signals.
-- **Training**: AdamW optimizer with linear warmup + cosine annealing with warm restarts. Early stopping with patience. Multi-GPU grid search and seed search for hyperparameter tuning.
-- **Data**: Futures OHLCV candle data. 90/10 train/test split. 480-step sliding windows with OHLC values normalized relative to the window start.
-- **Results**: Classifier achieves **76.8% accuracy** with a **13.3% false positive rate** on the validation set. Loss converges from ~0.75 to ~0.45 BCE.
+- **Architecture**: Transformer encoder with learnable CLS token projected through a linear head. 8 layers, 8 heads, 320-dim embeddings, 768-dim FFN. Same backbone for both tasks; output head differs (1 logit for classification, 3 for regression).
+- **Preprocessing**: Custom trend detection via EWMA velocity/acceleration heuristics. Features include asinh-normalized diffs, cyclical time encoding, log-normalized raw values, and EWMA momentum signals. 15-dimensional feature vector per timestep.
+- **Training**: AdamW with linear warmup + cosine annealing with warm restarts. Multi-GPU grid search and seed search for hyperparameter tuning.
+- **Data**: Futures OHLCV, 90/10 train/test split, 480-step sliding windows with OHLC normalized relative to window start.
+- **Results**: Classifier achieves **76.8% accuracy** with a **13.3% false positive rate**. Loss converges from ~0.75 to ~0.45 BCE.
 
-## How to use
+## How to Use
 
-**`main_interface.py`** -- Interactive entry point. Prompts for task selection, debug mode, and graphing.
+**`main_interface.py`** -- Interactive entry point. Trains the full pipeline (`p`), classifier only (`c`), or regressor only (`r`). Debug mode enables NaN/Inf validation at every transformer layer. Graph mode generates trend overlays and loss curves.
 
-```bash
-python main_interface.py
-# Train pipeline, classifier, or regressor? (p / c / r)
-# Debug mode? (y / n)
-# Graph mode? (y / n)
-```
+**`main_finetune.py`** -- Multi-GPU hyperparameter search:
+- **`grid_search()`** -- Sweeps LR ($5 \times 10^{-6}$ to $1 \times 10^{-5}$), weight decay ($0.003$ to $0.01$), warmup steps ($7000$ to $12000$), dispatching each combination to a separate GPU.
+- **`seed_search()`** -- 10 random seeds for both tasks to measure initialization variance.
 
-- **`p`** trains both the classifier and regressor sequentially
-- **`c`** or **`r`** trains just one
-- **Debug mode** enables NaN/Inf validation checks at every layer of the transformer forward pass
-- **Graph mode** generates trend overlay plots and loss convergence curves into `graphing/graphs/`
-
-**`main_finetune.py`** -- Multi-GPU hyperparameter search. Two modes:
-
-- **`grid_search()`** -- Sweeps over learning rate ($5 \times 10^{-6}$ to $1 \times 10^{-5}$), weight decay ($0.003$ to $0.01$), and warmup steps ($7000$ to $12000$). Each combination is dispatched to a separate GPU process.
-- **`seed_search()`** -- Trains 10 random seeds for both classifier and regressor to measure variance across initializations.
-
-Both use `multiprocessing.Pool` with `CUDA_VISIBLE_DEVICES` isolation so each process gets its own GPU.
-
-**`hyperparams.py`** -- Single source of truth for all hyperparameters. The finetuning scripts mutate this module at runtime before launching training.
+**`hyperparams.py`** -- Single source of truth for all hyperparameters. Finetuning scripts mutate this module at runtime before launching training.
 
 ## Feature Engineering
 
 <p align="center"><img src="docs/images/feature_pipeline.png" width="650"/></p>
 
-The raw input is 6 columns of OHLCV + datetime data. The preprocessing step in `main_preprocess.py` expands this into a 15-dimensional feature vector per timestep:
+Raw OHLCV + datetime data is expanded into a 15-dimensional feature vector per timestep:
 
 - **OHLC diffs**: First-order differences for open, high, low, close
-- **Asinh-normalized diffs**: $\text{asinh}(\Delta h), \text{asinh}(\Delta l), \text{asinh}(\Delta c)$ -- compresses large moves without clipping them to zero like standard normalization would
-- **Log-normalized raw values**: $\log(1 + \text{open}), \log(1 + \text{volume})$ -- scale-invariant representations of absolute price and volume levels
+- **Asinh-normalized diffs**: $\text{asinh}(\Delta h), \text{asinh}(\Delta l), \text{asinh}(\Delta c)$ -- compresses large moves without killing signal like standard normalization
+- **Log-normalized raw values**: $\log(1 + \text{open}), \log(1 + \text{volume})$ -- scale-invariant price and volume representations
 - **Volume percent change**: Relative volume shift between consecutive candles
-- **Cyclical time encoding**: $\sin(2\pi t / 86400), \cos(2\pi t / 86400)$ -- encodes time-of-day without discontinuity at midnight
-- **EWMA velocity and acceleration**: Smoothed first and second derivatives of close price diffs using exponentially weighted moving averages ($\alpha = 0.3$)
-- **Trend mask**: Binary label generated by the custom trend detection algorithm in `preprocess/classifier.py`
+- **Cyclical time encoding**: $\sin(2\pi t / 86400), \cos(2\pi t / 86400)$ -- encodes time-of-day without midnight discontinuity
+- **EWMA velocity and acceleration**: Smoothed first and second derivatives of close price diffs ($\alpha = 0.3$)
+- **Trend mask**: Binary label from the custom trend detection algorithm
 
-At training time, each 480-step window gets its OHLC columns normalized relative to the first candle in the window: $(x_t - x_0) / x_0$. This makes the model invariant to absolute price level.
+Each 480-step window gets OHLC normalized relative to the first candle: $(x_t - x_0) / x_0$, making the model invariant to absolute price level.
 
 ## Trend Detection
 
-The most interesting piece of preprocessing is the trend classifier in `preprocess/classifier.py`. It doesn't use any ML -- it's a hand-crafted heuristic that identifies "trending" segments in the price data:
+The trend classifier in `preprocess/classifier.py` is a hand-crafted heuristic -- no ML:
 
 1. Compute non-overlapping 5-candle average velocities
 2. Roll a 24-label window ($120$ candles) of cumulative absolute movement
-3. Track an EWMA velocity/acceleration pair across those label windows
-4. A trend **starts** when the velocity-to-window ratio exceeds a gate ($0.012$) or velocity and acceleration disagree in sign
-5. A trend is **confirmed** after 3 steps only if acceleration aligns with velocity direction and exceeds $12\%$ of velocity magnitude
-6. A trend **ends** when both velocity and acceleration flip sign
+3. Track EWMA velocity/acceleration across label windows
+4. Trend **starts** when velocity-to-window ratio exceeds gate ($0.012$) or velocity/acceleration disagree in sign
+5. Trend **confirmed** after 3 steps only if acceleration aligns with velocity and exceeds $12\%$ of velocity magnitude
+6. Trend **ends** when both velocity and acceleration flip sign
 
-This produces a binary mask over the full dataset that the classifier transformer learns to replicate, and that the regressor uses to select which windows to train on.
+This produces a binary mask that the classifier learns to replicate and the regressor uses to select training windows.
 
 ## Model Architecture
-
-Both tasks share the same `TransformerBCE` backbone defined in `pipeline/model_t.py`:
 
 | Component | Specification |
 |---|---|
@@ -81,13 +70,13 @@ Both tasks share the same `TransformerBCE` backbone defined in `pipeline/model_t
 | Output head | `Linear(320, 1)` for classifier, `Linear(320, 3)` for regressor |
 | Loss | `BCEWithLogitsLoss` (classifier), `MSELoss` (regressor) |
 
-The CLS token is prepended to the sequence, passed through the full encoder stack, and its final representation is projected through the output head. The regressor predicts asinh-scaled high/low/close deltas, which are inverted with $\sinh$ at evaluation time to recover raw price differences.
+The regressor predicts asinh-scaled high/low/close deltas, inverted with $\sinh$ at evaluation to recover raw price differences.
 
 ## Learning Rate Schedule
 
 <p align="center"><img src="docs/images/lr_schedule.png" width="650"/></p>
 
-The schedule uses **linear warmup** for the first 9,000 steps, then **cosine annealing with warm restarts** (initial period $T_0 = 10{,}000$, multiplier $T_{\text{mult}} = 2$). The warm restarts are important here -- financial data is non-stationary, so periodically resetting the learning rate gives the model a chance to escape local minima that were optimal for earlier market regimes but not for later ones.
+Linear warmup for 9,000 steps, then cosine annealing with warm restarts ($T_0 = 10{,}000$, $T_{\text{mult}} = 2$). Warm restarts are critical for financial data: periodic LR resets let the model escape local minima tied to earlier market regimes. Warmup prevents gradient explosions from the randomly initialized CLS token in early steps.
 
 ## Results
 
@@ -95,10 +84,9 @@ The schedule uses **linear warmup** for the first 9,000 steps, then **cosine ann
 <img src="docs/images/classifier_performance.png" width="600"/>
 </p>
 
-The classifier reaches **76.8% accuracy** on the held-out test set with the following error profile:
-
-- **False positive rate: 13.3%** -- the model rarely calls "trending" when the market is flat. This is the important one for downstream use, since a false positive would trigger the regressor on noise.
-- **False negative rate: 37.5%** -- the model misses about a third of actual trends. This is acceptable; missing a trade is cheaper than entering a bad one.
+- **Accuracy: 76.8%** on the held-out test set
+- **False positive rate: 13.3%** -- rarely calls "trending" when flat; critical for downstream use since false positives trigger the regressor on noise
+- **False negative rate: 37.5%** -- misses a third of trends, but missing a trade is cheaper than entering a bad one
 - **Validation loss: 0.481** (BCE)
 
 <p align="center">
@@ -106,51 +94,34 @@ The classifier reaches **76.8% accuracy** on the held-out test set with the foll
 <img src="graphing/graphs/pred_classes.png" width="330"/>
 </p>
 
-The plots above show actual trend labels (left) vs predicted trend labels (right) overlaid on the close price series. Red segments indicate "trending" classification. The model captures the major directional moves while filtering out most of the chop in the middle.
-
 <p align="center"><img src="graphing/graphs/classifier_convergence.png" width="600"/></p>
 
-The loss convergence curve shows training over ~140 checkpoints (every 2,500 batches). The loss drops from ~0.75 to the 0.40--0.50 range with significant per-batch variance, which is expected given the noisy nature of the labels.
+## Key Design Decisions
 
-## Process
+- **Two-stage over direct prediction**: A single model predicting every tick learns to output "roughly the same as last close" since that minimizes MSE in a noisy series. The classifier/regressor split forces the system to first identify signal, then predict magnitude.
+- **Asinh over standard normalization**: Large price moves get clipped toward zero under standard normalization. Asinh compresses outliers while preserving their relative magnitude.
+- **Window-relative OHLC normalization**: Without it, the model overfits to absolute price levels -- performs well on one price range, fails on another.
+- **Warm restarts for non-stationary data**: Financial data changes regime. Periodic LR resets prevent the model from getting stuck in optima that were good for earlier market conditions.
+- **Seed search validation**: 10-seed sweep confirmed classifier results are stable ($\pm 2\%$ accuracy variance).
 
-1. I started with a straightforward approach: throw raw OHLCV into a transformer and predict the next close price. This didn't work at all. The model would just learn to predict "roughly the same as the last close" because that minimizes MSE in a noisy series. The loss would converge to something that looked good but the predictions were useless -- just a slightly smoothed version of the input.
+## Limitations
 
-2. That led me to the two-stage idea. Instead of predicting price directly, first classify whether the market is *doing something*, then predict the magnitude only during those windows. The trend detection heuristic was the hardest part to get right. I went through several iterations of the velocity/acceleration thresholds before landing on values that produced a reasonable trend mask -- not too many false trends, not too few real ones missed.
-
-3. The feature engineering choices were driven by specific problems. **Asinh normalization** came from watching the model struggle with large price moves that would blow up standard normalization. Asinh compresses outliers without killing the signal. **Window-relative OHLC normalization** was necessary because the model was overfitting to absolute price levels -- it would work great on one price range and fail completely on another.
-
-4. The learning rate schedule was another iteration. I initially used a flat learning rate and the model would converge to a mediocre solution and plateau. Warm restarts helped significantly -- the periodic LR resets let the model escape local minima. The warmup was necessary because without it, the first few hundred steps would produce enormous gradients from the randomly initialized CLS token.
-
-5. For hyperparameter tuning, I wrote the multi-GPU grid search (`main_finetune.py`) after getting tired of manually babysitting runs. Each GPU process gets its own `CUDA_VISIBLE_DEVICES` to avoid memory conflicts. The seed search across 10 initializations confirmed that the classifier results are reasonably stable ($\pm 2\%$ accuracy variance).
-
-## Assumptions and Limitations
-
-- **Trend detection is heuristic**: The binary labels that the classifier learns from are generated by a hand-tuned algorithm, not ground truth. If the heuristic mislabels a section, the classifier learns to replicate that mistake. A more robust approach would be to use some form of regime detection or hidden Markov model.
-- **No regressor results saved**: The current repo only has saved classifier weights. The regressor pipeline works but I haven't committed a trained checkpoint. The classifier was the harder problem and the focus of the tuning effort.
-- **Static feature set**: The 15 features were chosen based on intuition and iteration, not ablation studies. There may be redundant features, and there are likely useful ones missing (e.g., order book data, inter-market correlations).
-- **Single instrument**: This was trained on a single futures contract. Generalization to other instruments would require at minimum retuning the trend detection thresholds and probably retraining from scratch.
-- **Window size is large**: 480 steps is a wide context window. This makes training slow and limits batch size on smaller GPUs. A more efficient approach might use a hierarchical architecture that first compresses local patterns before attending across the full window.
+- **Heuristic labels**: The classifier learns from hand-tuned labels, not ground truth. A hidden Markov model or regime detection approach would be more principled.
+- **No feature ablation**: The 15 features were chosen via intuition and iteration. Likely redundant features exist, and useful ones are missing (order book data, inter-market correlations).
+- **480-step window cost**: Large context window limits batch size on smaller GPUs. A hierarchical architecture compressing local patterns before full-window attention would be more efficient.
 
 ## Configuration
 
-All hyperparameters live in `hyperparams.py`:
+All hyperparameters in `hyperparams.py`:
 
 ```python
-# Data
-WINDOW_SIZE = 480       # Sliding window length (timesteps)
-BATCH_SIZE = 64         # Training batch size
-
-# Optimizer (AdamW)
-LEARNING_RATE = 6e-6    # Peak learning rate
+WINDOW_SIZE = 480       # Sliding window length
+BATCH_SIZE = 64
+LEARNING_RATE = 6e-6    # Peak LR
 WEIGHT_DECAY = 0.05     # L2 regularization
-
-# Scheduler
 WARMUP = 9000           # Linear warmup steps
 T0 = 10000              # Initial cosine period
 T_MULT = 2              # Period multiplier per restart
-
-# Preprocessing
 VEL_ALPHA = 0.3         # EWMA smoothing for velocity
 ACCEL_ALPHA = 0.3       # EWMA smoothing for acceleration
 ```
